@@ -1,0 +1,51 @@
+# Core framework
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+python-multipart>=0.0.9,<1.0
+python-dotenv>=1.0,<2.0
+pydantic-settings>=2.0,<3.0
+
+# LangChain ecosystem — use modern versions compatible with Python 3.13
+langchain>=0.3.20,<1.0
+langchain-community>=0.3.20,<1.0
+langchain-openai>=0.3.0,<1.0
+langchain-chroma>=0.2.0,<1.0
+langchain-text-splitters>=0.3.6,<1.0
+langchain-core>=0.3.20,<1.0
+
+# Database
+sqlalchemy>=2.0,<3.0
+aiosqlite>=0.20,<1.0
+alembic>=1.14,<2.0
+
+# Auth
+python-jose[cryptography]>=3.3,<4.0
+bcrypt>=4.0
+
+# Vector store
+chromadb>=0.5,<1.0
+
+# LLM / Embeddings
+openai>=1.0,<2.0
+tiktoken>=0.8,<1.0
+
+# Document processing
+pypdf>=5.0,<6.0
+python-docx>=1.1,<2.0
+markdown>=3.0,<4.0
+lxml>=5.0,<6.0
+
+# Pin PostHog to v3 — ChromaDB 0.5.x is incompatible with posthog>=4.0
+posthog>=3.0,<4.0
+
+# Caching
+cachetools>=5.0,<6.0
+diskcache>=5.0,<6.0
+
+# Rate limiting
+slowapi>=0.1,<1.0
+
+# Testing
+pytest>=8.0,<9.0
+pytest-asyncio>=0.24,<1.0
+httpx>=0.28,<1.0

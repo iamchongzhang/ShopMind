@@ -1,0 +1,1 @@
+"""ShopMind — AI-Powered Product Knowledge Assistant."""

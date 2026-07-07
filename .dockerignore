@@ -1,0 +1,41 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# Data (mounted as volumes)
+data/chroma/
+data/uploads/
+data/cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+logs/
+*.log
+
+# Claude
+.claude/
