@@ -1,5 +1,6 @@
 """Product Catalog service — document CRUD and management."""
 
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -22,6 +23,8 @@ from app.utils.file_utils import validate_and_sanitize_file
 # Absolute path to project root (backend/app/services -> project root)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 UPLOAD_DIR = _PROJECT_ROOT / "data" / "uploads"
+
+logger = logging.getLogger("shopmind")
 
 
 async def upload_document(
@@ -113,7 +116,7 @@ async def get_document(db: AsyncSession, document_id: int) -> DocumentDetailResp
                 "metadata": metadata,
             })
     except Exception:
-        pass  # Chroma may not have chunks yet
+        logger.warning("Chroma lookup failed for document %s — returning 0 chunks", document_id)
 
     detail = DocumentDetailResponse.model_validate(doc)
     detail.chunks = chunks
@@ -129,7 +132,7 @@ async def delete_document(db: AsyncSession, document_id: int) -> None:
         vector_store = get_vector_store()
         vector_store.delete(where={"document_id": str(document_id)})
     except Exception:
-        pass
+        logger.warning("Chroma vector deletion failed for document %s — orphaned vectors may remain", document_id)
 
     # Remove file
     file_path = UPLOAD_DIR / doc.file_path
@@ -149,7 +152,7 @@ async def reprocess_document(db: AsyncSession, document_id: int) -> DocumentResp
         vector_store = get_vector_store()
         vector_store.delete(where={"document_id": str(document_id)})
     except Exception:
-        pass
+        logger.warning("Chroma vector deletion failed for reprocess of document %s — duplicate chunks possible", document_id)
 
     # Reset status
     doc.status = "pending"

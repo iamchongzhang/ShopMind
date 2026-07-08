@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Project root is 2 directories above this config file
@@ -63,6 +64,22 @@ class Settings(BaseSettings):
     # Admin seed
     admin_username: str = "admin"
     admin_password: str = ""  # MUST be set via .env for production
+
+    @field_validator("secret_key")
+    @classmethod
+    def secret_key_must_be_set(cls, v: str) -> str:
+        """Refuse to start if SECRET_KEY is empty — prevents forged JWTs."""
+        if not v:
+            raise ValueError("SECRET_KEY must be set via .env — cannot be empty")
+        return v
+
+    @field_validator("admin_password")
+    @classmethod
+    def admin_password_must_be_set(cls, v: str) -> str:
+        """Refuse to start if ADMIN_PASSWORD is empty — prevents admin login with no password."""
+        if not v:
+            raise ValueError("ADMIN_PASSWORD must be set via .env — cannot be empty")
+        return v
 
 
 settings = Settings()
