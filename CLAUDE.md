@@ -37,6 +37,9 @@ FastAPI Backend (Uvicorn, single worker by default)
 
 ```
 f:/LangChainRAG/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # CI/CD pipeline (pytest, vitest, Docker build, Docker Hub push)
 ├── backend/                        # FastAPI backend
 │   ├── app/
 │   │   ├── main.py                 # App entry: lifespan, middleware, routers
@@ -213,7 +216,8 @@ Key variables (full list in `.env.example`):
 
 | Variable | Default/Value | Notes |
 |----------|--------------|-------|
-| `SECRET_KEY` | dev key (change in prod) | JWT signing |
+| `SECRET_KEY` | dev key (change in prod) | JWT signing. Startup validator rejects empty values — app refuses to start |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | admin / 123456 | Seed script creates this. Startup validator rejects empty ADMIN_PASSWORD |
 | `BAILIAN_API_KEY` | sk-ws-H... (real key) | Bailian API credential |
 | `BAILIAN_LLM_MODEL` | qwen3.7-max | Overrides config default (qwen-max) |
 | `BAILIAN_EMBEDDING_MODEL` | text-embedding-v2 | |
@@ -225,7 +229,6 @@ Key variables (full list in `.env.example`):
 | `RETRIEVAL_LAMBDA_MULT` | 0.7 | Relevance vs diversity balance |
 | `JWT_EXPIRE_MINUTES` | 480 | 8 hours |
 | `BCRYPT_ROUNDS` | 12 | CPU-intensive — bottleneck under load |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | admin / 123456 | Seed script creates this |
 | `RATE_LIMIT_ENABLED` | true | Set to false for stress testing |
 | `CORS_ORIGINS` | ["http://localhost:5173"] | Vite dev server |
 | `MAX_UPLOAD_SIZE_MB` | 50 | |
@@ -279,6 +282,19 @@ RATE_LIMIT_ENABLED=false ../../../.venv/Scripts/locust -f locustfile.py --host h
 docker compose up -d                     # Dev: backend :8000, frontend :3000
 docker compose --profile production up -d # Production: includes nginx reverse proxy
 docker compose exec backend python scripts/seed_admin.py  # Seed inside container
+```
+
+### CI/CD
+
+```bash
+# CI triggers automatically on push/PR to main
+# Manual trigger: https://github.com/iamchongzhang/ShopMind/actions
+
+# Pipeline jobs (see .github/workflows/ci.yml):
+#   1. Backend:  pytest -v (all 9 auth tests)
+#   2. Frontend: tsc -b (typecheck) + oxlint + vitest --passWithNoTests
+#   3. Docker:   build both images (push to main only)
+#   4. Deploy:   push to lampfish1/shopmind-backend + shopmind-frontend on Docker Hub
 ```
 
 ---
@@ -344,7 +360,7 @@ Uploaded files get UUID prefix: `{uuid4_hex}_{sanitized_original_name}`. The ori
 - Services raise `HTTPException` directly for domain errors (409, 401, 403, 404, 413, 415)
 - DB sessions auto-rollback on exception via `get_db` dependency
 - Background task (`process_document`) catches all exceptions → sets `doc.status = "failed"` with truncated error
-- Chroma errors caught silently in `kb_service` (Chroma unavailability won't crash the API)
+- Chroma errors logged as warnings in `kb_service` (Chroma unavailability won't crash the API, but is now visible in logs)
 
 ---
 
