@@ -133,6 +133,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check secrets are set
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "ERROR: DOCKERHUB_USERNAME secret is empty or not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "ERROR: DOCKERHUB_TOKEN secret is empty or not set"
+            exit 1
+          fi
+          echo "Both secrets are present (values hidden)"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
