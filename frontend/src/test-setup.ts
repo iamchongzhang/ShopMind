@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 
 // jsdom does not implement ResizeObserver, which Ant Design's TextArea
 // and other components depend on. Provide a stub so tests don't crash.
-global.ResizeObserver = class ResizeObserver {
+(globalThis as any).ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
