@@ -68,9 +68,16 @@ export default function DocumentDetailDrawer({ documentId, onClose }: Props) {
             )}
           </Descriptions>
 
-          <h3 style={{ fontFamily: 'Poppins, sans-serif', fontSize: 15, marginBottom: 12 }}>
-            Chunk Previews
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
+            <h3 style={{ fontFamily: 'Poppins, sans-serif', fontSize: 15, margin: 0 }}>
+              Chunk Previews
+            </h3>
+            {doc.chunk_total > 0 && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Showing {doc.chunks?.length || 0} of {doc.chunk_total} chunks
+              </Text>
+            )}
+          </div>
           <List
             dataSource={doc.chunks || []}
             renderItem={(chunk) => (

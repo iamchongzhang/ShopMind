@@ -118,10 +118,22 @@ async def process_document(document_id: int):
 
         except Exception as e:
             logger.error(f"Document {document_id} processing failed: {e}", exc_info=True)
-            # Re-fetch the doc in the same session
-            result = await db.execute(select(Document).where(Document.id == document_id))
-            doc = result.scalar_one_or_none()
-            if doc:
-                doc.status = "failed"
-                doc.error_message = str(e)[:1000]
-                await db.commit()
+            # Rollback the poisoned session before retrying
+            try:
+                await db.rollback()
+            except Exception:
+                pass  # Session may already be closed
+
+            # Use a fresh session to update the document status
+            try:
+                async with async_session_factory() as fresh_db:
+                    result = await fresh_db.execute(select(Document).where(Document.id == document_id))
+                    doc = result.scalar_one_or_none()
+                    if doc:
+                        doc.status = "failed"
+                        doc.error_message = str(e)[:1000]
+                        await fresh_db.commit()
+            except Exception as fresh_err:
+                logger.error(
+                    f"Failed to update document {document_id} status after processing error: {fresh_err}"
+                )

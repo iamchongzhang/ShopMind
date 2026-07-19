@@ -51,11 +51,16 @@ async def list_documents(
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
 async def get_document(
     document_id: int,
+    chunk_offset: int = Query(0, ge=0),
+    chunk_limit: int = Query(200, ge=1, le=1000),
     _admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get document details with chunk previews (admin only)."""
-    return await kb_service.get_document(db, document_id)
+    """Get document details with chunk previews (admin only).
+
+    Supports pagination via chunk_offset and chunk_limit query params.
+    """
+    return await kb_service.get_document(db, document_id, chunk_offset, chunk_limit)
 
 
 @router.delete("/documents/{document_id}", status_code=204)

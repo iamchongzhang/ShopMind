@@ -1,0 +1,77 @@
+[
+  {
+    "question": "I'm 5'6 and 145 lbs with an athletic build. What size should I get in the oxford shirt — medium or large?",
+    "capability": "Size Recommendations",
+    "expected_filename": "oxford-shirt.csv"
+  },
+  {
+    "question": "My waist measures 30 inches and I usually wear a 32-inch inseam. Do the chinos come in that size, and should I go slim or straight fit?",
+    "capability": "Size Recommendations",
+    "expected_filename": "stretch-chinos.csv"
+  },
+  {
+    "question": "I'm between a size 6 and 8 in jeans depending on the brand. Do the high-waist jeans run small? Should I size up?",
+    "capability": "Size Recommendations",
+    "expected_filename": "high-waist-jeans.csv"
+  },
+  {
+    "question": "I need an outfit for an outdoor summer wedding. Would the linen dress be appropriate, and what shoes would go with it?",
+    "capability": "Product Details",
+    "expected_filename": "linen-dress.csv"
+  },
+  {
+    "question": "Is the merino sweater machine washable or does it need to be dry cleaned? Will it shrink if I accidentally put it in the dryer?",
+    "capability": "Product Details",
+    "expected_filename": "merino-sweater.csv"
+  },
+  {
+    "question": "Does the puffer jacket have pockets that zip shut? I need somewhere secure for my phone and wallet while traveling.",
+    "capability": "Product Details",
+    "expected_filename": "puffer-jacket.csv"
+  },
+  {
+    "question": "What's the inseam length on the running shorts? I prefer a 5-inch or shorter for races.",
+    "capability": "Product Details",
+    "expected_filename": "running-shorts.csv"
+  },
+  {
+    "question": "I'm building a summer work wardrobe. Which is more versatile for a business casual office — the oxford shirt or the linen dress?",
+    "capability": "Product Comparisons",
+    "expected_filename": "oxford-shirt.csv"
+  },
+  {
+    "question": "Compare the puffer jacket and the merino sweater for a winter trip to Chicago. Which will keep me warmer and which packs easier?",
+    "capability": "Product Comparisons",
+    "expected_filename": "puffer-jacket.csv"
+  },
+  {
+    "question": "Between the chinos and the jeans, which has more stretch? I bike to work and need pants I can move in.",
+    "capability": "Product Comparisons",
+    "expected_filename": "stretch-chinos.csv"
+  },
+  {
+    "question": "I ordered the jeans but the waist is too tight. Can I exchange them for a different size and do you cover the return shipping?",
+    "capability": "Store Policies",
+    "expected_filename": "high-waist-jeans.csv"
+  },
+  {
+    "question": "What's your return policy on the running shorts? I want to try them on but I know some stores don't accept returns on activewear for hygiene reasons.",
+    "capability": "Store Policies",
+    "expected_filename": "running-shorts.csv"
+  },
+  {
+    "question": "If I buy the oxford shirt, the chinos, and the sweater together, does the order qualify for free shipping? How long will delivery take?",
+    "capability": "Store Policies",
+    "expected_filename": "oxford-shirt.csv"
+  },
+  {
+    "question": "How do I layer the merino sweater and puffer jacket for a trip where temperatures range from 30°F in the morning to 60°F by noon?",
+    "capability": "General Assistance",
+    "expected_filename": "merino-sweater.csv"
+  },
+  {
+    "question": "I need a gift for my dad's 60th birthday. He's retired and likes to garden and go for walks. Something nice but not too formal — under $100. What do you recommend?",
+    "capability": "General Assistance",
+    "expected_filename": "oxford-shirt.csv"
+  }
+]

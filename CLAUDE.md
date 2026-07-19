@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-## ShopMind — AI-Powered Product Knowledge Assistant for E-Commerce
+## ShopMind — AI Shopping Assistant for Fashion & Apparel
 
 Enterprise RAG (Retrieval-Augmented Generation) system that lets users ask product questions and get AI-powered answers with source citations. Built with LangChain + Alibaba Cloud Bailian (Qwen), Chroma vector store, SQLite, FastAPI backend, and React 19 + Ant Design frontend.
 
@@ -28,7 +28,7 @@ FastAPI Backend (Uvicorn, single worker by default)
     │
     └── Bailian API (OpenAI-compatible)
         LLM: qwen3.7-max (overridden in .env), temp=0.1, max_tokens=2048
-        Base URL: ws-074c99f6gufx2ec0.cn-beijing.maas.aliyuncs.com
+        Base URL: <your-bailian-endpoint> (OpenAI-compatible)
 ```
 
 ---
@@ -83,7 +83,7 @@ f:/LangChainRAG/
 │   │       └── text_utils.py       # extract_citations, clean_question, build_chat_history
 │   ├── tests/
 │   │   ├── conftest.py             # In-memory SQLite fixtures (async), httpx test client
-│   │   ├── test_auth.py            # 8 tests: register, login, me, change-password, admin guard
+│   │   ├── test_auth.py            # 9 tests: register, login, me, change-password, admin guard
 │   │   └── stress/
 │   │       ├── __init__.py         # Locust package marker
 │   │       └── reports/.gitkeep    # Report output directory
@@ -98,7 +98,7 @@ f:/LangChainRAG/
 │   │   ├── api/                    # API client layer
 │   │   │   ├── client.ts          # Axios instance (/api base, JWT interceptor, 401→/login redirect)
 │   │   │   ├── auth.ts            # login, register, getMe, changePassword
-│   │   │   ├── qa.ts              # askQuestionStream (SSE fetch, AbortController) — not currently used by ChatContainer
+│   │   │   ├── qa.ts              # askQuestionStream (SSE fetch, AbortController) — wired into ChatContainer
 │   │   │   ├── conversations.ts   # list, create, get, update, delete
 │   │   │   └── knowledgeBase.ts   # list, get, upload (multipart), delete, reprocess
 │   │   ├── components/
@@ -117,7 +117,9 @@ f:/LangChainRAG/
 │
 ├── scripts/
 │   ├── seed_admin.py              # Creates admin user (admin/123456) if not exists
-│   └── sample_products.csv        # 7 sample e-commerce products for KB testing
+│   ├── sample_products/           # 7 per-product CSV files for clothing catalog
+│   ├── eval_questions.json        # 15 Q&A pairs for RAG retrieval evaluation
+│   └── eval_rag.py                # Retrieval quality eval: Hit Rate, MRR, Precision@k
 │
 ├── data/                          # Persistent runtime data (gitignored except .gitkeep files)
 │   ├── app.db                     # SQLite database
@@ -188,7 +190,7 @@ f:/LangChainRAG/
 
 ## RAG Pipeline (the core flow)
 
-`qa_service.ask_question_streaming()` — 9-step async generator:
+`qa_service.ask_question_streaming()` — 10-step async generator:
 
 1. **Resolve/create conversation** — finds existing or creates new with title "New Conversation"
 2. **Save user message** — `INSERT INTO messages (role='user', content=question)`
@@ -218,10 +220,10 @@ Key variables (full list in `.env.example`):
 |----------|--------------|-------|
 | `SECRET_KEY` | dev key (change in prod) | JWT signing. Startup validator rejects empty values — app refuses to start |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | admin / 123456 | Seed script creates this. Startup validator rejects empty ADMIN_PASSWORD |
-| `BAILIAN_API_KEY` | sk-ws-H... (real key) | Bailian API credential |
+| `BAILIAN_API_KEY` | (set in .env) | Bailian API credential |
 | `BAILIAN_LLM_MODEL` | qwen3.7-max | Overrides config default (qwen-max) |
 | `BAILIAN_EMBEDDING_MODEL` | text-embedding-v2 | |
-| `BAILIAN_BASE_URL` | ws-074c99f6gufx2ec0.cn-beijing.maas.aliyuncs.com/compatible-mode/v1 | OpenAI-compatible |
+| `BAILIAN_BASE_URL` | https://dashscope-intl.aliyuncs.com/compatible-mode/v1 | OpenAI-compatible |
 | `LLM_TEMPERATURE` | 0.1 | |
 | `LLM_MAX_TOKENS` | 2048 | |
 | `RETRIEVAL_K` | 8 | MMR final results |
@@ -257,7 +259,7 @@ start.bat                                # Windows CMD
 cd f:/LangChainRAG
 .venv/Scripts/python scripts/seed_admin.py
 
-# Seed KB with sample products (upload via admin UI at /admin/knowledge-base)
+# Seed KB with clothing catalog (upload files from scripts/sample_products/ via admin UI)
 ```
 
 ### Testing
@@ -270,6 +272,12 @@ cd f:/LangChainRAG
 # Frontend tests (no tests written yet, infrastructure is configured)
 cd f:/LangChainRAG/frontend
 npm test
+
+# RAG retrieval evaluation (requires KB populated + Bailian API key)
+cd f:/LangChainRAG
+.venv/Scripts/python scripts/eval_rag.py           # Default k=8
+.venv/Scripts/python scripts/eval_rag.py --verbose # Per-question details
+.venv/Scripts/python scripts/eval_rag.py --k 4 8 12  # Compare k values
 
 # Stress testing (requires locust — not yet installed)
 cd f:/LangChainRAG/backend/tests/stress
@@ -332,12 +340,12 @@ docker compose exec backend python scripts/seed_admin.py  # Seed inside containe
 ### Known Bottlenecks (for production/stress testing)
 
 1. **Rate limiter**: 200 req/min/IP default — must set `RATE_LIMIT_ENABLED=false` for any load test
-2. **SQLite single-writer**: WAL mode helps read concurrency but writes still serialize. Connection pool is 5+10=15 max.
+2. **SQLite single-writer**: WAL mode helps read concurrency but writes still serialize. Mitigated by `timeout: 30` busy timeout (waits instead of failing) and early-commit pattern in Q&A (write lock released before LLM streaming). Pool is 5+10=15 max.
 3. **bcrypt 12 rounds**: CPU-bound, blocks event loop on login/register. Consider bcrypt 4 for dev, or run in thread pool.
 4. **Bailian API latency**: External LLM calls are 3–7s each. This dominates Q&A response time.
-5. **Synchronous retriever**: `retriever.invoke()` inside async generator blocks the event loop. Should use `ainvoke()`.
+5. **Synchronous retriever**: ✅ Fixed — now uses `await retriever.ainvoke()`.
 6. **Single Uvicorn worker**: Dockerfile runs `uvicorn` without `--workers`. Use 4+ workers for concurrency.
-7. **DB session held for entire SSE stream**: The `get_db` session stays open for the full SSE connection duration (can be minutes).
+7. **DB session held for entire SSE stream**: ✅ Fixed — Q&A now commits after saving the user message (before retrieval+streaming) and again after saving the assistant message. Write lock is held for milliseconds, not seconds.
 
 ### Caching strategy
 

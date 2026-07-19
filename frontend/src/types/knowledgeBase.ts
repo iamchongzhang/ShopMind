@@ -26,6 +26,7 @@ export interface ChunkPreview {
 
 export interface DocumentDetail extends Document {
   chunks: ChunkPreview[];
+  chunk_total: number;
 }
 
 export interface UploadResponse {

@@ -1,5 +1,6 @@
 """System API routes — health check and stats."""
 
+import logging
 import time
 
 from fastapi import APIRouter, Depends
@@ -16,6 +17,7 @@ from app.schemas.system import HealthResponse, StatsResponse
 router = APIRouter(tags=["system"])
 
 _start_time = time.time()
+logger = logging.getLogger("shopmind.system")
 
 
 @router.get("/api/health", response_model=HealthResponse)
@@ -40,6 +42,8 @@ async def get_stats(
     completed = (await db.execute(select(func.count(Document.id)).where(Document.status == "completed"))).scalar() or 0
     processing = (await db.execute(select(func.count(Document.id)).where(Document.status == "processing"))).scalar() or 0
     failed = (await db.execute(select(func.count(Document.id)).where(Document.status == "failed"))).scalar() or 0
+
+    logger.info("Stats requested: %d users, %d docs, %d chunks", user_count, doc_count, total_chunks)
 
     return StatsResponse(
         user_count=user_count,

@@ -64,6 +64,9 @@ async def upload_document(
     # Explicit commit so the background task can find the document
     await db.commit()
 
+    logger.info("Document %d uploaded: %s (%s, %d bytes) by user %d",
+                doc.id, safe_name, file_ext, len(content), current_user.id)
+
     return UploadResponse(id=doc.id, filename=doc.filename, status=doc.status)
 
 
@@ -100,18 +103,38 @@ async def list_documents(
     )
 
 
-async def get_document(db: AsyncSession, document_id: int) -> DocumentDetailResponse:
-    """Get a single document with chunk previews."""
+async def get_document(
+    db: AsyncSession,
+    document_id: int,
+    chunk_offset: int = 0,
+    chunk_limit: int = 200,
+) -> DocumentDetailResponse:
+    """Get a single document with chunk previews.
+
+    Args:
+        chunk_offset: Number of chunks to skip (for pagination).
+        chunk_limit: Maximum chunks to return. Default 200, max 1000.
+    """
     doc = await _get_doc_or_404(db, document_id)
 
     # Get chunk previews from vector store
     chunks = []
+    total_chunks_in_store = 0
     try:
         vector_store = get_vector_store()
-        results = vector_store.get(where={"document_id": str(document_id)}, limit=20)
-        for i, (text, metadata) in enumerate(zip(results["documents"], results["metadatas"])):
+        # ChromaDB get() doesn't support offset natively — fetch enough
+        # to cover the requested window, then slice client-side
+        fetch_limit = chunk_offset + min(chunk_limit, 1000)
+        results = vector_store.get(
+            where={"document_id": str(document_id)},
+            limit=fetch_limit,
+        )
+        total_chunks_in_store = doc.chunk_count
+        all_chunks = list(zip(results["documents"], results["metadatas"]))
+        window = all_chunks[chunk_offset: chunk_offset + chunk_limit]
+        for i, (text, metadata) in enumerate(window):
             chunks.append({
-                "chunk_index": metadata.get("chunk_index", i),
+                "chunk_index": metadata.get("chunk_index", chunk_offset + i),
                 "content_preview": text[:200],
                 "metadata": metadata,
             })
@@ -120,6 +143,7 @@ async def get_document(db: AsyncSession, document_id: int) -> DocumentDetailResp
 
     detail = DocumentDetailResponse.model_validate(doc)
     detail.chunks = chunks
+    detail.chunk_total = total_chunks_in_store
     return detail
 
 
@@ -142,6 +166,8 @@ async def delete_document(db: AsyncSession, document_id: int) -> None:
     await db.delete(doc)
     await db.flush()
 
+    logger.info("Document %d deleted: %s", document_id, doc.filename)
+
 
 async def reprocess_document(db: AsyncSession, document_id: int) -> DocumentResponse:
     """Re-process a document (delete old chunks then re-ingest)."""
@@ -160,6 +186,8 @@ async def reprocess_document(db: AsyncSession, document_id: int) -> DocumentResp
     doc.error_message = None
     await db.flush()
     await db.refresh(doc)
+
+    logger.info("Document %d queued for reprocessing: %s", document_id, doc.filename)
 
     return DocumentResponse.model_validate(doc)
 

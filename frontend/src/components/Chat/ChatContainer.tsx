@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import * as conversationsApi from '../../api/conversations';
+import { askQuestionStream } from '../../api/qa';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
 import type { Message as MessageType } from '../../types/chat';
@@ -19,6 +20,7 @@ export default function ChatContainer() {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load messages when conversation changes
   const { data: convData, isLoading } = useQuery({
@@ -29,7 +31,14 @@ export default function ChatContainer() {
 
   useEffect(() => {
     if (convData?.messages) {
-      setMessages(convData.messages);
+      setMessages((prev) => {
+        // Don't replace local messages with fewer server messages —
+        // the server may not have committed the latest messages yet
+        if (convData.messages.length < prev.length) {
+          return prev;
+        }
+        return convData.messages;
+      });
     } else if (!conversationId) {
       setMessages([]);
     }
@@ -41,12 +50,24 @@ export default function ChatContainer() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
 
+  // Cleanup: abort in-flight SSE stream on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
   const handleSend = useCallback(async (question: string) => {
     if (!token) {
       message.error('Please log in to send messages.');
       return;
     }
+
+    // Stop button clicked — abort the in-flight SSE stream
     if (isStreaming) {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      finishStreaming();
       return;
     }
 
@@ -65,44 +86,83 @@ export default function ChatContainer() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Call sync Q&A endpoint (reliable, no SSE proxy issues)
-    try {
-      const response = await fetch('/api/qa/ask-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ question, conversation_id: conversationId }),
-      });
+    // Abort any previous request (safety net — isStreaming guard should prevent this)
+    abortRef.current?.abort();
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: 'Request failed' }));
-        throw new Error(err.detail || 'Request failed');
-      }
-
-      const data = await response.json();
-      finishStreaming();
-
-      const convId: number = data.conversation_id;
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['conversation', convId] });
-
-      if (!conversationId) {
-        navigate(`/chat/${convId}`, { replace: true });
-      } else {
-        const convData = await conversationsApi.getConversation(convId).catch(() => null);
-        if (convData) {
-          setMessages(convData.messages);
-        } else {
-          setError('Failed to load conversation.');
+    abortRef.current = askQuestionStream(
+      question,
+      conversationId,
+      token,
+      // onToken — feed each token to the chat store for real-time display
+      (text) => {
+        appendToken(text);
+      },
+      // onCitation — show source badges as they arrive
+      (citations) => {
+        setCitations(citations);
+      },
+      // onDone — build the final assistant message from accumulated state
+      (messageId, convId) => {
+        // Skip adding a message if messageId is 0 (backend couldn't save)
+        if (messageId > 0) {
+          const { streamingContent: content, pendingCitations: citations } = useChatStore.getState();
+          const assistantMsg: MessageType = {
+            id: messageId,
+            conversation_id: convId,
+            role: 'assistant',
+            content,
+            citations_json: citations.length > 0 ? JSON.stringify(citations) : null,
+            token_count: null,
+            created_at: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
         }
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      setError(msg);
-      finishStreaming();
-    }
+
+        // Refresh sidebar
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+
+        // Navigate if this was a new conversation
+        if (!conversationId && convId > 0) {
+          navigate(`/chat/${convId}`, { replace: true });
+        }
+
+        // Sync with server to pick up the committed message
+        if (messageId > 0) {
+          const syncWithServer = async (retries = 2) => {
+            for (let attempt = 0; attempt < retries; attempt++) {
+              try {
+                const convData = await conversationsApi.getConversation(convId);
+                const hasMessage = convData.messages.some(
+                  (m) => m.id === messageId
+                );
+                if (hasMessage || attempt === retries - 1) {
+                  queryClient.setQueryData(
+                    ['conversation', convId],
+                    convData
+                  );
+                  setMessages(convData.messages);
+                  return;
+                }
+                await new Promise((r) => setTimeout(r, 150));
+              } catch {
+                return;
+              }
+            }
+          };
+          syncWithServer();
+        }
+      },
+      // onError — surface the error (cleanup happens in onComplete)
+      (errMsg) => {
+        setError(errMsg);
+        message.error(errMsg);
+      },
+      // onComplete — ALWAYS called; the finally block for loading state
+      () => {
+        finishStreaming();
+        abortRef.current = null;
+      },
+    );
   }, [token, isStreaming, conversationId, startStreaming, appendToken, setCitations, finishStreaming, queryClient, navigate]);
 
   // Build display messages

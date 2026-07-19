@@ -20,4 +20,8 @@ def get_llm(streaming: bool = True) -> ChatOpenAI:
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
         streaming=streaming,
+        request_timeout=settings.llm_request_timeout,
+        default_headers={
+            "Content-Type": "application/json",
+        },
     )

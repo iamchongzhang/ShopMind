@@ -42,7 +42,9 @@ def setup_logging(debug: bool = False):
     root.addHandler(console)
 
     # Rotating file handler (10 MB max, 5 backups)
-    log_dir = Path("logs")
+    # Use absolute path relative to project root (not CWD, which varies by launch dir)
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    log_dir = project_root / "logs"
     log_dir.mkdir(exist_ok=True)
     file_handler = logging.handlers.RotatingFileHandler(
         log_dir / "shopmind.log",
@@ -57,5 +59,8 @@ def setup_logging(debug: bool = False):
     # Also configure uvicorn access log
     logging.getLogger("uvicorn.access").handlers.clear()
     logging.getLogger("uvicorn.access").addHandler(console)
+
+    # Confirm logging is set up
+    root.info("Logging initialized — writing to %s", log_dir / "shopmind.log")
 
     return root

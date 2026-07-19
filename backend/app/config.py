@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # LLM parameters
     llm_temperature: float = 0.1
     llm_max_tokens: int = 2048
+    llm_request_timeout: int = 60  # Seconds before timing out LLM API calls
 
     # Retrieval
     retrieval_k: int = 8

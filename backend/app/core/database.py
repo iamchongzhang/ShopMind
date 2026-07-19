@@ -12,6 +12,9 @@ engine = create_async_engine(
     echo=settings.debug,
     pool_size=5,
     max_overflow=10,
+    connect_args={
+        "timeout": 30,  # Wait up to 30s for SQLite write lock instead of failing instantly
+    },
 )
 
 async_session_factory = async_sessionmaker(

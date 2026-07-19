@@ -9,6 +9,9 @@ dist/
 build/
 *.egg
 
+# Claude
+CLAUDE.md
+
 # Environment
 .env
 .env.local

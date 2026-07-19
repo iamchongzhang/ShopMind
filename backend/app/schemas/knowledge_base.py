@@ -48,3 +48,4 @@ class ChunkPreview(BaseModel):
 
 class DocumentDetailResponse(DocumentResponse):
     chunks: list[ChunkPreview] = []
+    chunk_total: int = 0
